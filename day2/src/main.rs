@@ -1,4 +1,6 @@
+mod game;
 mod part1;
+mod part2;
 
 static LINES: &str = 
 "Game 1: 4 red, 5 blue, 9 green; 7 green, 7 blue, 3 red; 16 red, 7 blue, 3 green; 11 green, 11 blue, 6 red; 12 red, 14 blue
@@ -100,9 +102,10 @@ Game 96: 5 green, 9 blue, 16 red; 17 red, 11 green, 9 blue; 10 blue, 13 green, 9
 Game 97: 6 blue, 4 green, 6 red; 4 red, 13 green, 2 blue; 15 green, 2 red; 2 green, 2 red
 Game 98: 10 blue, 13 red; 10 blue, 16 red, 4 green; 6 blue, 4 green, 14 red; 4 green, 1 blue, 11 red; 4 red, 4 green
 Game 99: 1 red, 4 blue; 5 red, 8 blue; 3 blue, 1 green; 2 red, 6 blue; 8 blue, 2 green, 3 red
-Game 100: 5 green, 1 red; 4 blue, 8 red, 4 green; 1 blue, 3 red, 15 green; 1 blue, 15 green, 1 red; 2 red, 13 green
-";
+Game 100: 5 green, 1 red; 4 blue, 8 red, 4 green; 1 blue, 3 red, 15 green; 1 blue, 15 green, 1 red; 2 red, 13 green";
 
 fn main() {
-    println!("Part 1 {}", part1::sum(LINES));
+    let games = game::parse_games(LINES);
+    println!("Part 1: {}", part1::sum(&games));
+    println!("Part 2: {}", part2::power_sum(&games));
 }
