@@ -1,4 +1,5 @@
 mod part1;
+mod part2;
 
 static LINES: &'static str =
 "2qlljdqcbeight
@@ -1004,4 +1005,5 @@ nvfive8hvdth6fgnfgh
 
 fn main() {
     println!("Part 1: {}", part1::sum(LINES));
+    println!("Part 2: {}", part2::sum(LINES));
 }
