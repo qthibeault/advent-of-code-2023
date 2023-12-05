@@ -214,6 +214,13 @@ fn main() {
     let part_sum: usize = part_numbers.into_iter().sum();
 
     println!("Part 1: {}", part_sum);
+
+    let ratio_sum: usize = schematic.gear_ratios()
+        .into_iter()
+        .map(|(g1, g2)| g1 * g2)
+        .sum();
+
+    println!("Part 2: {}", ratio_sum);
 }
 
 #[cfg(test)]
@@ -226,5 +233,16 @@ mod tests {
         let part_sum: usize = schematic.part_numbers().into_iter().sum();
 
         assert_eq!(part_sum, 4361);
+    }
+
+    #[test]
+    fn test_part2() {
+        let schematic = Schematic::default();
+        let ratio_sum: usize = schematic.gear_ratios()
+            .into_iter()
+            .map(|(g1, g2)| g1 * g2)
+            .sum();
+
+        assert_eq!(ratio_sum, 467835);
     }
 }

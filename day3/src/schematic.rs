@@ -133,6 +133,22 @@ impl<'a> Schematic<'a> {
     pub fn symbols(&self) -> HashSet<char> {
         self.symbols.iter().map(|sym| sym.value).collect()
     }
+
+    pub fn gear_ratios(&self) -> Vec<(usize, usize)> {
+        self.symbols
+            .iter()
+            .filter(|&sym| sym.value == '*')
+            .map(|sym| {
+                self.numbers
+                    .iter()
+                    .filter(|&num| num.adjacent_spaces().contains(&sym.pos))
+                    .map(|num| usize::from_str(num.value).expect("Could not parse part number"))
+                    .collect::<Vec<usize>>()
+            })
+            .filter(|parts| parts.len() == 2)
+            .map(|parts| (parts[0], parts[1]))
+            .collect()
+    }
 }
 
 impl Default for Schematic<'static> {
@@ -197,6 +213,23 @@ mod tests {
         let part_numbers = schematic.part_numbers();
         let expected: Vec<usize> = vec![467, 35, 633, 617, 592, 755, 664, 598];
 
-        assert_eq!(part_numbers, expected);
+        assert_eq!(part_numbers.len(), expected.len());
+
+        for num in &expected {
+            assert!(part_numbers.contains(num));
+        }
+    }
+
+    #[test]
+    fn test_gear_ratios() {
+        let schematic = Schematic::default();
+        let gear_ratios = schematic.gear_ratios();
+        let expected: Vec<(usize, usize)> = vec![(467, 35), (755, 598)];
+
+        assert_eq!(gear_ratios.len(), expected.len());
+
+        for (g1, g2) in expected {
+            assert!(gear_ratios.contains(&(g1, g2)) || gear_ratios.contains(&(g2, g1)));
+        }
     }
 }
