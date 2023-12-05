@@ -2,7 +2,7 @@ mod card;
 
 use indoc::indoc;
 
-use card::Card;
+use card::{Card, copies};
 
 static INPUT: &str = indoc! {"
 Card   1: 24 76 32 40 51 61 89  6 30 60 | 30 69 24 86  6  8 92 61 51 88 63 67 32 62 15 49 22 77 40 27 89 60 76 58 79
@@ -216,4 +216,10 @@ fn main() {
         .sum();
 
     println!("Part 1: {}", points_sum);
+
+    let copies_sum: u32 = copies(&cards)
+        .into_values()
+        .sum();
+
+    println!("Part 2: {}", copies_sum);
 }

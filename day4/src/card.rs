@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use nom::bytes::complete::tag;
 use nom::character::complete::space1;
 use nom::combinator::eof;
@@ -12,15 +14,17 @@ pub struct Card {
 }
 
 impl Card {
-    pub fn points(&self) -> u32 {
-        let n_winners: u32 = self.numbers
+    pub fn n_winners(&self) -> u32 {
+        self.numbers
             .iter()
-            .filter(|n| self.winning_numbers.contains(n))
+            .filter(|&n| self.winning_numbers.contains(n))
             .count()
             .try_into()
-            .expect("Count could not be converted into a u32");
+            .expect("Count could not be converted into a u32")
+    }
 
-        match n_winners {
+    pub fn points(&self) -> u32 {
+        match self.n_winners() {
             0 => 0,
             n => u32::pow(2, n - 1)
         }
@@ -38,8 +42,30 @@ impl Card {
     }
 }
 
+pub fn copies(cards: &[Card]) -> HashMap<u32, u32> {
+    let mut copies: HashMap<u32, u32> = cards
+        .iter()
+        .map(|card| (card.id, 1))
+        .collect();
+
+    for card in cards {
+        for i in 1..=card.n_winners() {
+            let id_to_copy = card.id + i;
+            let id_copies = copies[&card.id];
+
+            if copies.contains_key(&id_to_copy) {
+                copies.get_mut(&id_to_copy).map(|n_copies| *n_copies += id_copies);
+            }
+        }
+    }
+
+    copies
+}
+
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
+
     use super::Card;
 
     #[test]
@@ -86,5 +112,31 @@ mod tests {
         assert_eq!(c1.points(), 8);
         assert_eq!(c2.points(), 2);
         assert_eq!(c3.points(), 1);
+    }
+
+    #[test]
+    fn copies() {
+        let cards_str = indoc!{"
+            Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53
+            Card 2: 13 32 20 16 61 | 61 30 68 82 17 32 24 19
+            Card 3:  1 21 53 59 44 | 69 82 63 72 16 21 14  1
+            Card 4: 41 92 73 84 69 | 59 84 76 51 58  5 54 83
+            Card 5: 87 83 26 28 32 | 88 30 70 12 93 22 82 36
+            Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11
+        "};
+
+        let cards: Vec<Card> = cards_str
+            .lines()
+            .map(|line| Card::from_str(line.trim()).expect("Could not parse card"))
+            .collect();
+
+        let card_copies = super::copies(&cards);
+
+        assert_eq!(card_copies[&1], 1);
+        assert_eq!(card_copies[&2], 2);
+        assert_eq!(card_copies[&3], 4);
+        assert_eq!(card_copies[&4], 8);
+        assert_eq!(card_copies[&5], 14);
+        assert_eq!(card_copies[&6], 1);
     }
 }
