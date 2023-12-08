@@ -1,4 +1,7 @@
 use std::collections::HashSet;
+use std::hash::Hash;
+
+use super::{One, Two};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Seed(u64);
@@ -89,9 +92,8 @@ impl Range {
     fn contains(&self, n: u64) -> bool {
         let start = self.src_start;
         let end = start + self.length;
-        let range = start..end;
 
-        range.contains(&n)
+        start <= n && n <= end
     }
 
     fn convert(&self, n: u64) -> Option<u64> {
@@ -155,6 +157,7 @@ impl<const N: usize> From<[Range; N]> for Map {
 struct SeedSoilMap(Map);
 
 impl SeedSoilMap {
+    #[inline]
     fn convert(&self, seed: Seed) -> Soil {
         Soil(self.0.convert(seed.0))
     }
@@ -170,6 +173,7 @@ impl<const N: usize> From<[Range; N]> for SeedSoilMap {
 struct SoilFertilizerMap(Map);
 
 impl SoilFertilizerMap {
+    #[inline]
     fn convert(&self, soil: Soil) -> Fertilizer {
         Fertilizer(self.0.convert(soil.0))
     }
@@ -185,6 +189,7 @@ impl<const N: usize> From<[Range; N]> for SoilFertilizerMap {
 struct FertilizerWaterMap(Map);
 
 impl FertilizerWaterMap {
+    #[inline]
     fn convert(&self, fertilizer: Fertilizer) -> Water {
         Water(self.0.convert(fertilizer.0))
     }
@@ -200,6 +205,7 @@ impl<const N: usize> From<[Range; N]> for FertilizerWaterMap {
 struct WaterLightMap(Map);
 
 impl WaterLightMap {
+    #[inline]
     fn convert(&self, water: Water) -> Light {
         Light(self.0.convert(water.0))
     }
@@ -215,6 +221,7 @@ impl<const N: usize> From<[Range; N]> for WaterLightMap {
 struct LightTemperatureMap(Map);
 
 impl LightTemperatureMap {
+    #[inline]
     fn convert(&self, light: Light) -> Temperature {
         Temperature(self.0.convert(light.0))
     }
@@ -230,6 +237,7 @@ impl<const N: usize> From<[Range; N]> for LightTemperatureMap {
 struct TemperatureHumidityMap(Map);
 
 impl TemperatureHumidityMap {
+    #[inline]
     fn convert(&self, temperature: Temperature) -> Humidity {
         Humidity(self.0.convert(temperature.0))
     }
@@ -245,6 +253,7 @@ impl<const N: usize> From<[Range; N]> for TemperatureHumidityMap {
 struct HumidityLocationMap(Map);
 
 impl HumidityLocationMap {
+    #[inline]
     fn convert(&self, humidity: Humidity) -> Location {
         Location(self.0.convert(humidity.0))
     }
@@ -257,8 +266,11 @@ impl<const N: usize> From<[Range; N]> for HumidityLocationMap {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Almanac {
-    seeds: HashSet<Seed>,
+pub struct Almanac<T>
+where
+    T: Eq + Hash,
+{
+    seeds: HashSet<T>,
     seed_soil: SeedSoilMap,
     soil_fertilizer: SoilFertilizerMap,
     fertilizer_water: FertilizerWaterMap,
@@ -280,7 +292,10 @@ pub struct Conversion {
     pub location: Location,
 }
 
-impl Almanac {
+impl<T> Almanac<T>
+where
+    T: Eq + Hash,
+{
     fn convert(&self, seed: Seed) -> Conversion {
         let soil = self.seed_soil.convert(seed);
         let fertilizer = self.soil_fertilizer.convert(soil);
@@ -301,11 +316,37 @@ impl Almanac {
             location,
         }
     }
+}
 
+impl Almanac<Seed> {
     pub fn conversions(&self) -> impl Iterator<Item = Conversion> + '_ {
         self.seeds
             .iter()
             .map(|seed| self.convert(*seed))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SeedRange {
+    start: u64,
+    end: u64,
+}
+
+impl SeedRange {
+    fn seeds(&self) -> impl Iterator<Item = Seed> {
+        (self.start..=self.end)
+            .into_iter()
+            .map(|n| Seed(n))
+    }
+}
+
+impl Almanac<SeedRange> {
+    pub fn conversions(&self) -> impl Iterator<Item = Conversion> + '_ {
+        self.seeds
+            .iter()
+            .map(|r| r.seeds())
+            .flatten()
+            .map(|s| self.convert(s))
     }
 }
 
@@ -317,9 +358,9 @@ fn parse_seeds(block: &str) -> HashSet<Seed> {
         .collect()
 }
 
-impl From<&str> for Almanac {
-    fn from(input: &str) -> Self {
-        let blocks: Vec<&str> = input.split("\n\n").collect();
+impl<'a> From<One<'a>> for Almanac<Seed> {
+    fn from(input: One<'a>) -> Self {
+        let blocks: Vec<&str> = input.0.split("\n\n").collect();
 
         assert_eq!(blocks.len(), 8);
 
@@ -336,13 +377,53 @@ impl From<&str> for Almanac {
     }
 }
 
+fn parse_seed_ranges(block: &str) -> HashSet<SeedRange> {
+    let mut values = block
+        .split_whitespace()
+        .skip(1)
+        .map(|s| u64::from_str_radix(s, 10).expect("Could not parse seed"));
+
+    let mut ranges = HashSet::new();
+
+    while let Some(start) = values.next() {
+        let length = values.next().expect("Must be even number of values to produce seed ranges");
+        let end = start + length;
+
+        ranges.insert(SeedRange { start, end });
+    }
+
+    ranges
+}
+
+
+impl<'a> From<Two<'a>> for Almanac<SeedRange> {
+    fn from(input: Two<'a>) -> Self {
+        let blocks: Vec<&str> = input.0.split("\n\n").collect();
+
+        assert_eq!(blocks.len(), 8);
+
+        Self {
+            seeds: parse_seed_ranges(blocks[0]) ,
+            seed_soil: SeedSoilMap(Map::from(blocks[1])),
+            soil_fertilizer: SoilFertilizerMap(Map::from(blocks[2])),
+            fertilizer_water: FertilizerWaterMap(Map::from(blocks[3])),
+            water_light: WaterLightMap(Map::from(blocks[4])),
+            light_temperature: LightTemperatureMap(Map::from(blocks[5])),
+            temperature_humidity: TemperatureHumidityMap(Map::from(blocks[6])),
+            humidity_location: HumidityLocationMap(Map::from(blocks[7])),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
+    use std::{collections::HashSet, hash::Hash};
 
     use indoc::indoc;
 
     use super::{
+        One,
+        Two,
         Almanac,
         Seed,
         Range,
@@ -353,12 +434,15 @@ mod tests {
         LightTemperatureMap,
         TemperatureHumidityMap,
         HumidityLocationMap,
-        Conversion,
+        Conversion, SeedRange,
     };
 
-    fn almanac() -> Almanac {
+    fn almanac<T, const N: usize>(seeds: [T; N]) -> Almanac<T>
+    where
+        T: Eq + Hash,
+    {
         Almanac {
-            seeds: HashSet::from([Seed(79), Seed(14), Seed(55), Seed(13)]),
+            seeds: HashSet::from(seeds),
             seed_soil: SeedSoilMap::from([
                 Range { dest_start: 50, src_start: 98, length: 2 },
                 Range { dest_start: 52, src_start: 50, length: 48 },
@@ -394,45 +478,54 @@ mod tests {
         }
     }
 
+    fn seed_almanac() -> Almanac<Seed> {
+        almanac([Seed(79), Seed(14), Seed(55), Seed(13)])
+    }
+
+    fn seed_range_almanac() -> Almanac<SeedRange> {
+        almanac([SeedRange { start: 79, end: 81 }, SeedRange { start: 55, end: 67 }])
+    }
+
+    static INPUT: &str = indoc!{"
+        seeds: 79 14 55 13
+
+        seed-to-soil map:
+        50 98 2
+        52 50 48
+
+        soil-to-fertilizer map:
+        0 15 37
+        37 52 2
+        39 0 15
+
+        fertilizer-to-water map:
+        49 53 8
+        0 11 42
+        42 0 7
+        57 7 4
+
+        water-to-light map:
+        88 18 7
+        18 25 70
+
+        light-to-temperature map:
+        45 77 23
+        81 45 19
+        68 64 13
+
+        temperature-to-humidity map:
+        0 69 1
+        1 0 69
+
+        humidity-to-location map:
+        60 56 37
+        56 93 4
+    "};
+
     #[test]
     fn parsing() {
-        let input: &str = indoc!{"
-            seeds: 79 14 55 13
-
-            seed-to-soil map:
-            50 98 2
-            52 50 48
-
-            soil-to-fertilizer map:
-            0 15 37
-            37 52 2
-            39 0 15
-
-            fertilizer-to-water map:
-            49 53 8
-            0 11 42
-            42 0 7
-            57 7 4
-
-            water-to-light map:
-            88 18 7
-            18 25 70
-
-            light-to-temperature map:
-            45 77 23
-            81 45 19
-            68 64 13
-
-            temperature-to-humidity map:
-            0 69 1
-            1 0 69
-
-            humidity-to-location map:
-            60 56 37
-            56 93 4
-        "};
-
-        assert_eq!(Almanac::from(input), almanac());
+        assert_eq!(Almanac::from(One(INPUT)), seed_almanac());
+        assert_eq!(Almanac::from(Two(INPUT)), seed_range_almanac());
     }
 
     #[test]
@@ -480,7 +573,7 @@ mod tests {
             },
         ]);
 
-        let conversions = almanac()
+        let conversions = seed_almanac()
             .conversions()
             .collect();
 

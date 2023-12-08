@@ -4,6 +4,9 @@ use indoc::indoc;
 
 use almanac::Almanac;
 
+pub struct One<'a>(&'a str);
+pub struct Two<'a>(&'a str);
+
 fn main() {
     let input: &str = indoc!{"
         seeds: 3640772818 104094365 1236480411 161072229 376099792 370219099 1590268366 273715765 3224333694 68979978 2070154278 189826014 3855332650 230434913 3033760782 82305885 837883389 177854788 2442602612 571881366
@@ -258,12 +261,20 @@ fn main() {
         3200087289 589945654 111007259
     "};
 
-    let almanac = Almanac::from(input);
-    let min_location: u64 = almanac
+    let a1 = Almanac::from(One(input));
+    let part1: u64 = a1
         .conversions()
         .map(|c| c.location.into())
         .min()
         .expect("No seeds in almanac");
 
-    println!("Part 1: {}", min_location);
+    let a2 = Almanac::from(Two(input));
+    let part2: u64 = a2
+        .conversions()
+        .map(|c| c.location.into())
+        .min()
+        .expect("No seeds in almanac");
+
+    println!("Part 1: {}", part1);
+    println!("Part 2: {}", part2);
 }
