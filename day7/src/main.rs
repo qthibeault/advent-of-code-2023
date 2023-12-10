@@ -3,28 +3,41 @@ use std::collections::HashMap;
 use indoc::indoc;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct Card(u8);
+enum Card {
+    Joker,
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
+    Nine,
+    Ten,
+    Jack,
+    Queen,
+    King,
+    Ace,
+}
 
 impl From<char> for Card {
     fn from(input: char) -> Self {
-        let value = match input {
-            'A' => Ok(14),
-            'K' => Ok(13),
-            'Q' => Ok(12),
-            'J' => Ok(11),
-            'T' => Ok(10),
-            '9' => Ok(9),
-            '8' => Ok(8),
-            '7' => Ok(7),
-            '6' => Ok(6),
-            '5' => Ok(5),
-            '4' => Ok(4),
-            '3' => Ok(3),
-            '2' => Ok(2),
-            _ => Err(())
-        };
-
-        value.map(|v| Self(v)).expect("Could not parse card")
+        match input {
+            'A' => Self::Ace,
+            'K' => Self::King,
+            'Q' => Self::Queen,
+            'J' => Self::Jack,
+            'T' => Self::Ten,
+            '9' => Self::Nine,
+            '8' => Self::Eight,
+            '7' => Self::Seven,
+            '6' => Self::Six,
+            '5' => Self::Five,
+            '4' => Self::Four,
+            '3' => Self::Three,
+            '2' => Self::Two,
+            _ => panic!("Unknown card {}", input)
+        }
     }
 }
 
@@ -52,9 +65,25 @@ impl Hand {
             *groups.entry(card).or_insert(0) += 1;
         }
 
+        if groups.len() > 1 {
+            let &best_card = groups
+                .keys()
+                .filter(|&&card| *card != Card::Joker)
+                .max_by_key(|&&card| groups.get(card).copied().unwrap_or(0))
+                .unwrap();
+
+            let joker_count = groups
+                .get(&Card::Joker)
+                .copied()
+                .unwrap_or(0);
+
+            groups.entry(best_card).and_modify(|count| *count += joker_count);
+            groups.remove(&Card::Joker);
+        }
+
         let mut counts = groups
-            .values()
-            .copied()
+            .into_iter()
+            .map(|(_, count)| count)
             .collect::<Vec<_>>();
 
         counts.sort();
@@ -73,9 +102,12 @@ impl Hand {
     }
 }
 
-impl From<&str> for Hand {
-    fn from(input: &str) -> Self {
-        let mut card_chars = input.chars();
+struct One<'a>(&'a str);
+struct Two<'a>(&'a str);
+
+impl<'a> From<One<'a>> for Hand {
+    fn from(input: One<'a>) -> Self {
+        let mut card_chars = input.0.chars();
         let cards = [
             Card::from(card_chars.next().unwrap()),
             Card::from(card_chars.next().unwrap()),
@@ -85,6 +117,20 @@ impl From<&str> for Hand {
         ];
 
         Hand { cards }
+    }
+}
+
+impl<'a> From<Two<'a>> for Hand {
+    fn from(input: Two<'a>) -> Self {
+        let mut hand = Hand::from(One(input.0));
+
+        for card in &mut hand.cards {
+            if *card == Card::Jack {
+                *card = Card::Joker;
+            }
+        }
+
+        hand
     }
 }
 
@@ -125,12 +171,26 @@ impl Ord for Game {
     }
 }
 
-impl From<&str> for Game {
-    fn from(value: &str) -> Self {
-        let (hand, bet) = value.split_at(5);
+impl<'a> From<One<'a>> for Game {
+    fn from(value: One<'a>) -> Self {
+        let (hand, bet) = value.0.split_at(5);
 
         Game {
-            hand: Hand::from(hand.trim()),
+            hand: Hand::from(One(hand.trim())),
+            bet: bet
+                .trim()
+                .parse()
+                .expect("Could not parse bet"),
+        }
+    }
+}
+
+impl<'a> From<Two<'a>> for Game {
+    fn from(value: Two<'a>) -> Self {
+        let (hand, bet) = value.0.split_at(5);
+
+        Game {
+            hand: Hand::from(Two(hand.trim())),
             bet: bet
                 .trim()
                 .parse()
@@ -152,11 +212,24 @@ impl Games {
     }
 }
 
-impl From<&str> for Games {
-    fn from(value: &str) -> Self {
-        let mut games: Vec<_> = value
+impl<'a> From<One<'a>> for Games {
+    fn from(value: One<'a>) -> Self {
+        let mut games: Vec<_> = value.0
             .lines()
-            .map(Game::from)
+            .map(|line| Game::from(One(line)))
+            .collect();
+
+        games.sort();
+
+        Self(games)
+    }
+}
+
+impl<'a> From<Two<'a>> for Games {
+    fn from(value: Two<'a>) -> Self {
+        let mut games: Vec<_> = value.0
+            .lines()
+            .map(|line| Game::from(Two(line)))
             .collect();
 
         games.sort();
@@ -1169,35 +1242,37 @@ fn main() {
         TT9T9 71
     "};
 
-    let games = Games::from(input);
+    let p1 = Games::from(One(input));
+    println!("Part 1: {}", p1.total_winnings());
 
-    println!("Part 1: {}", games.total_winnings());
+    let p2 = Games::from(Two(input));
+    println!("Part 2: {}", p2.total_winnings());
 }
 
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
 
-    use super::{Card, Hand, HandKind, Games};
+    use super::{Card, Hand, HandKind, Games, One, Two};
 
     #[test]
     fn ord() {
         let stronger = Hand {
-            cards: [Card(3), Card(3), Card(3), Card(3), Card(1)],
+            cards: [Card::Three, Card::Three, Card::Three, Card::Three, Card::Two],
         };
 
         let weaker = Hand {
-            cards: [Card(2), Card(13), Card(13), Card(13), Card(13)],
+            cards: [Card::Two, Card::Ace, Card::Ace, Card::Ace, Card::Ace],
         };
 
         assert!(stronger > weaker);
 
         let stronger = Hand {
-            cards: [Card(7), Card(7), Card(8), Card(8), Card(8)],
+            cards: [Card::Seven, Card::Seven, Card::Eight, Card::Eight, Card::Eight],
         };
 
         let weaker = Hand {
-            cards: [Card(7), Card(7), Card(7), Card(8), Card(8)],
+            cards: [Card::Seven, Card::Seven, Card::Seven, Card::Eight, Card::Eight],
         };
 
         assert!(stronger > weaker);
@@ -1206,37 +1281,37 @@ mod tests {
     #[test]
     fn kind() {
         let five_of_a_kind = Hand {
-            cards: [Card(13), Card(13), Card(13), Card(13), Card(13)],
+            cards: [Card::Ace, Card::Ace, Card::Ace, Card::Ace, Card::Ace],
         };
 
         assert_eq!(five_of_a_kind.kind(), HandKind::FiveOfAKind);
 
         let four_of_a_kind = Hand {
-            cards: [Card(13), Card(13), Card(8), Card(13), Card(13)],
+            cards: [Card::Ace, Card::Ace, Card::Eight, Card::Ace, Card::Ace],
         };
 
         assert_eq!(four_of_a_kind.kind(), HandKind::FourOfAKind);
 
         let full_house = Hand {
-            cards: [Card(2), Card(3), Card(3), Card(3), Card(2)],
+            cards: [Card::Two, Card::Three, Card::Three, Card::Three, Card::Two],
         };
 
         assert_eq!(full_house.kind(), HandKind::FullHouse);
 
         let two_pair = Hand {
-            cards: [Card(2), Card(3), Card(4), Card(3), Card(2)],
+            cards: [Card::Two, Card::Three, Card::Four, Card::Three, Card::Two],
         };
 
         assert_eq!(two_pair.kind(), HandKind::TwoPair);
 
         let one_pair = Hand {
-            cards: [Card(13), Card(2), Card(3), Card(13), Card(4)],
+            cards: [Card::Ace, Card::Two, Card::Three, Card::Ace, Card::Four],
         };
 
         assert_eq!(one_pair.kind(), HandKind::OnePair);
 
         let high_card = Hand {
-            cards: [Card(2), Card(3), Card(4), Card(5), Card(6)],
+            cards: [Card::Two, Card::Three, Card::Four, Card::Five, Card::Six],
         };
 
         assert_eq!(high_card.kind(), HandKind::HighCard);
@@ -1252,8 +1327,13 @@ mod tests {
             QQQJA 483
         "};
 
-        let games = Games::from(input);
+        let games = Games::from(One(input));
 
         assert_eq!(games.total_winnings(), 6440);
+        println!("--");
+
+        let games = Games::from(Two(input));
+
+        assert_eq!(games.total_winnings(), 5905)
     }
 }
