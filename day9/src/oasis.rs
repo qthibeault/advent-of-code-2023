@@ -9,6 +9,12 @@ impl Report {
             .iter()
             .map(|history| history.extrapolate_end())
     }
+
+    pub fn extrapolate_start(&self) -> impl Iterator<Item = i64> + '_ {
+        self.dataset
+            .iter()
+            .map(|history| history.extrapolate_start())
+    }
 }
 
 impl From<&str> for Report {
@@ -59,11 +65,28 @@ impl History {
         ends.push(self.values.last().copied().unwrap());
 
         while !diff_seq.iter().all(|d| *d == 0) {
-            ends.push(*diff_seq.last().unwrap());
+            ends.push(diff_seq.last().copied().unwrap());
             diff_seq = differences(&diff_seq);
         }
 
         ends.into_iter().sum()
+    }
+
+    fn extrapolate_start(&self) -> i64 {
+        let mut diff_seq = differences(&self.values);
+        let mut starts = Vec::new();
+
+        starts.push(self.values.first().copied().unwrap());
+
+        while !diff_seq.iter().all(|d| *d == 0) {
+            starts.push(diff_seq.first().copied().unwrap());
+            diff_seq = differences(&diff_seq);
+        }
+
+        starts
+            .into_iter()
+            .rev()
+            .fold(0, |acc, elem| elem - acc)
     }
 }
 
@@ -88,12 +111,16 @@ mod tests {
     #[test]
     fn extrapolate() {
         let s1 = History::new([0, 3, 6, 9, 12, 15]);
-        let s2 = History::new([1, 3, 6, 10, 15, 21]);
-        let s3 = History::new([10, 13, 16, 21, 30, 45]);
-
         assert_eq!(s1.extrapolate_end(), 18);
+        assert_eq!(s1.extrapolate_start(), -3);
+
+        let s2 = History::new([1, 3, 6, 10, 15, 21]);
         assert_eq!(s2.extrapolate_end(), 28);
+        assert_eq!(s2.extrapolate_start(), 0);
+
+        let s3 = History::new([10, 13, 16, 21, 30, 45]);
         assert_eq!(s3.extrapolate_end(), 68);
+        assert_eq!(s3.extrapolate_start(), 5);
     }
 
     #[test]

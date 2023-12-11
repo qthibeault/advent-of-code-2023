@@ -210,6 +210,8 @@ fn main() {
 
     let report = Report::from(input);
     let part1: i64 = report.extrapolate_end().sum();
+    let part2: i64 = report.extrapolate_start().sum();
 
     println!("Part 1: {}", part1);
+    println!("Part 2: {}", part2);
 }
