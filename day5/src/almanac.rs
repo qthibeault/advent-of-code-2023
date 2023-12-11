@@ -93,7 +93,7 @@ impl Range {
         let start = self.src_start;
         let end = start + self.length;
 
-        start <= n && n <= end
+        start <= n && n < end
     }
 
     fn convert(&self, n: u64) -> Option<u64> {
@@ -387,7 +387,7 @@ fn parse_seed_ranges(block: &str) -> HashSet<SeedRange> {
 
     while let Some(start) = values.next() {
         let length = values.next().expect("Must be even number of values to produce seed ranges");
-        let end = start + length;
+        let end = start + length - 1;
 
         ranges.insert(SeedRange { start, end });
     }
@@ -483,7 +483,7 @@ mod tests {
     }
 
     fn seed_range_almanac() -> Almanac<SeedRange> {
-        almanac([SeedRange { start: 79, end: 81 }, SeedRange { start: 55, end: 67 }])
+        almanac([SeedRange { start: 79, end: 92 }, SeedRange { start: 55, end: 67 }])
     }
 
     static INPUT: &str = indoc!{"
