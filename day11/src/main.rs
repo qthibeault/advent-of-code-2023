@@ -22,7 +22,7 @@ fn read_galaxies(input: &str) -> Vec<Galaxy> {
         .collect()
 }
 
-fn expand_galaxies(galaxies: &[Galaxy]) -> Vec<Galaxy> {
+fn expand_galaxies(galaxies: &[Galaxy], amount: usize) -> Vec<Galaxy> {
     let mut nrows = 0;
     let mut occupied_rows = HashSet::new();
 
@@ -54,8 +54,8 @@ fn expand_galaxies(galaxies: &[Galaxy]) -> Vec<Galaxy> {
     galaxies
         .iter()
         .map(|g| Galaxy {
-            col: g.col + empty_cols.iter().filter(|&&c| g.col > c).count(),
-            row: g.row + empty_rows.iter().filter(|&&r| g.row > r).count(),
+            col: g.col + empty_cols.iter().filter(|&&c| g.col > c).count() * amount,
+            row: g.row + empty_rows.iter().filter(|&&r| g.row > r).count() * amount,
         })
         .collect()
 }
@@ -263,14 +263,21 @@ fn main() {
     "};
 
     let galaxies = read_galaxies(input);
-    let expanded = expand_galaxies(&galaxies);
-    let pairs = galaxy_pairs(&expanded);
-    let part1: usize = pairs
-        .iter()
-        .map(Pair::distance)
+    let expanded = expand_galaxies(&galaxies, 1);
+    let part1: usize = galaxy_pairs(&expanded)
+        .into_iter()
+        .map(|p| p.distance())
         .sum();
     
     println!("Part 1: {}", part1);
+
+    let expanded = expand_galaxies(&galaxies, 999_999);
+    let part2: usize = galaxy_pairs(&expanded)
+        .into_iter()
+        .map(|p| p.distance())
+        .sum();
+
+    println!("Part 2: {}", part2);
 }
 
 #[cfg(test)]
@@ -338,7 +345,7 @@ mod tests {
     fn expansion() {
         let galaxies = initial();
 
-        assert_eq!(expand_galaxies(&galaxies), expanded());
+        assert_eq!(expand_galaxies(&galaxies, 1), expanded());
     }
 
     #[test]
@@ -355,9 +362,32 @@ mod tests {
         let p1 = Pair { g1: &galaxies[0], g2: &galaxies[6] };
         let p2 = Pair { g1: &galaxies[2], g2: &galaxies[5] };
         let p3 = Pair { g1: &galaxies[7], g2: &galaxies[8] };
+        let total_distance: usize = galaxy_pairs(&galaxies)
+            .into_iter()
+            .map(|p| p.distance())
+            .sum();
 
         assert_eq!(p1.distance(), 15);
         assert_eq!(p2.distance(), 17);
         assert_eq!(p3.distance(), 5);
+        assert_eq!(total_distance, 374);
+
+        let galaxies = initial();
+        let galaxies = expand_galaxies(&galaxies, 9);
+        let total_distance: usize = galaxy_pairs(&galaxies)
+            .into_iter()
+            .map(|p| p.distance())
+            .sum();
+
+        assert_eq!(total_distance, 1030);
+
+        let galaxies = initial();
+        let galaxies = expand_galaxies(&galaxies, 99);
+        let total_distance: usize = galaxy_pairs(&galaxies)
+            .into_iter()
+            .map(|p| p.distance())
+            .sum();
+
+        assert_eq!(total_distance, 8410);
     }
 }
